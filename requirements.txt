@@ -1,0 +1,11 @@
+pandas
+numpy
+scikit-learn
+scikit-surprise
+streamlit
+plotly
+vaderSentiment
+nltk
+requests
+mlflow
+pickle5
