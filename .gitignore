@@ -7,3 +7,5 @@ models/
 mlruns/
 .ipynb_checkpoints/
 *.zip
+*.pkl
+mlflow.db
