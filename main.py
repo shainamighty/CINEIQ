@@ -396,30 +396,30 @@ tab1, tab2 = st.tabs(["🔍 Recommend", "🎭 My Taste Profile"])
 # ════════════════════════════════════════════════════════
 with tab1:
     
-c1, c2 = st.columns([6, 1])
-with c1:
-    st.markdown('<p class="ctrl-label">🎬 Pick a movie you loved</p>', unsafe_allow_html=True)
-    selected_movie = st.selectbox("", content_df['title'].values, label_visibility="collapsed")
-with c2:
-    st.markdown('<p class="ctrl-label">&nbsp;</p>', unsafe_allow_html=True)
-    search_btn = st.button("Find Movies →", use_container_width=True)
-nl_query = st.text_input("💬 Or just tell us what you're in the mood for", 
-                          placeholder="e.g. I have 3 hours and want something romantic and emotional")
-# NEW — mood/situation controls
-m1, m2, m3 = st.columns(3)
-with m1:
-    runtime_choice = st.selectbox("⏱ Time you have", ["No limit", "90 min", "2 hrs", "2.5 hrs"])
-with m2:
-    mood_choice = st.selectbox("🎭 Mood", ["Any", "Comfort watch", "Thrilling", "Thought-provoking", "Feel-good", "Dark/intense", "Romantic/emotional"])
-with m3:
-    weight_choice = st.radio("Light or heavy?", ["Any", "Light", "Heavy"], horizontal=True)
-if nl_query.strip():
-    parsed_runtime, parsed_mood, parsed_weight = parse_nl_query(nl_query)
-    runtime_choice = parsed_runtime
-    mood_choice = parsed_mood
-    weight_choice = parsed_weight
-alpha = 0.6
-user_id = 1
+    c1, c2 = st.columns([6, 1])
+    with c1:
+        st.markdown('<p class="ctrl-label">🎬 Pick a movie you loved</p>', unsafe_allow_html=True)
+        selected_movie = st.selectbox("", content_df['title'].values, label_visibility="collapsed")
+    with c2:
+        st.markdown('<p class="ctrl-label">&nbsp;</p>', unsafe_allow_html=True)
+        search_btn = st.button("Find Movies →", use_container_width=True)
+    nl_query = st.text_input("💬 Or just tell us what you're in the mood for", 
+                              placeholder="e.g. I have 3 hours and want something romantic and emotional")
+    # NEW — mood/situation controls
+    m1, m2, m3 = st.columns(3)
+    with m1:
+        runtime_choice = st.selectbox("⏱ Time you have", ["No limit", "90 min", "2 hrs", "2.5 hrs"])
+    with m2:
+        mood_choice = st.selectbox("🎭 Mood", ["Any", "Comfort watch", "Thrilling", "Thought-provoking", "Feel-good", "Dark/intense", "Romantic/emotional"])
+    with m3:
+        weight_choice = st.radio("Light or heavy?", ["Any", "Light", "Heavy"], horizontal=True)
+    if nl_query.strip():
+        parsed_runtime, parsed_mood, parsed_weight = parse_nl_query(nl_query)
+        runtime_choice = parsed_runtime
+        mood_choice = parsed_mood
+        weight_choice = parsed_weight
+    alpha = 0.6
+    user_id = 1
     
 
     st.markdown("""
