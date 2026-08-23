@@ -1,4 +1,5 @@
 import streamlit as st
+import re
 import pickle
 import pandas as pd
 import requests
@@ -267,7 +268,88 @@ def generate_reason(input_title, rec_id):
     if shared_kw:
         reasons.append(f"Theme: <span>{list(shared_kw)[0]}</span>")
     return " · ".join(reasons) if reasons else "Similar overall style and tone"
+RUNTIME_MAP = {"No limit": 999, "90 min": 90, "2 hrs": 120, "2.5 hrs": 150}
 
+MOOD_MAP = {
+    "Comfort watch":     {"genres": ["Comedy", "Family", "Romance"]},
+    "Thrilling":         {"genres": ["Thriller", "Action", "Mystery"]},
+    "Thought-provoking": {"genres": ["Drama", "Science Fiction"]},
+    "Feel-good":         {"genres": ["Comedy", "Animation", "Adventure"]},
+    "Dark/intense":      {"genres": ["Thriller", "Crime", "Horror"]},
+    "Romantic/emotional": {"genres": ["Romance", "Drama"]},
+}
+WEIGHT_MAP = {
+    "Light": ["Comedy", "Family", "Adventure", "Animation"],
+    "Heavy": ["War", "Drama", "Crime", "Thriller"],
+}
+
+def mood_fit_score(rec_genres, mood_choice):
+    if mood_choice == "Any":
+        return 1.0
+    target = set(MOOD_MAP.get(mood_choice, {}).get("genres", []))
+    return 1.2 if target & set(rec_genres) else 0.85
+
+def weight_fit_score(rec_genres, weight_choice):
+    if weight_choice == "Any":
+        return 1.0
+    target = set(WEIGHT_MAP.get(weight_choice, []))
+    return 1.15 if target & set(rec_genres) else 0.9
+
+def get_runtime(movie_id):
+    try:
+        r = requests.get(f"https://api.themoviedb.org/3/movie/{movie_id}",
+                          params={'api_key': API_KEY}, timeout=8).json()
+        return r.get('runtime', 999)
+    except:
+        return 999
+def parse_nl_query(text):
+    text = text.lower()
+    
+    # Runtime
+    runtime_choice = "No limit"
+    match = re.search(r'(\d+(\.\d+)?)\s*(hour|hr)', text)
+    if match:
+        hrs = float(match.group(1))
+        if hrs <= 1.5: runtime_choice = "90 min"
+        elif hrs <= 2: runtime_choice = "2 hrs"
+        elif hrs <= 2.5: runtime_choice = "2.5 hrs"
+    
+    # Weight
+    light_words = ["light", "funny", "not heavy", "not too emotional", "easy watch", "feel-good", "fun"]
+    heavy_words = ["heavy", "intense", "dark", "serious", "emotional", "sad"]
+    weight_choice = "Any"
+    if any(w in text for w in light_words):
+        weight_choice = "Light"
+    elif any(w in text for w in heavy_words):
+        weight_choice = "Heavy"
+    
+    # Mood
+    mood_keywords = {
+        "Comfort watch": ["comfort", "cozy", "familiar", "relax"],
+        "Thrilling": ["thrill", "suspense", "action", "exciting"],
+        "Thought-provoking": ["thought", "deep", "philosophical", "meaningful"],
+        "Feel-good": ["feel-good", "feel good", "uplifting", "happy"],
+        "Dark/intense": ["dark", "intense", "disturbing", "gritty"],
+    }
+    mood_choice = "Any"
+    for mood, kws in mood_keywords.items():
+        if any(kw in text for kw in kws):
+            mood_choice = mood
+            break
+    
+    # Romance/emotional isn't in your current MOOD_MAP genres — add it
+    if "romantic" in text or "romance" in text or "emotional" in text:
+        mood_choice = "Romantic/emotional"
+    
+    return runtime_choice, mood_choice, weight_choice        
+def generate_full_sentence(input_title, rec_id, mood_choice, weight_choice):
+    short = generate_reason(input_title, rec_id).replace("<span>", "").replace("</span>", "")
+    parts = [short.lower()]
+    if mood_choice != "Any":
+        parts.append(f"fits the {mood_choice.lower()} mood you picked")
+    if weight_choice != "Any":
+        parts.append(f"is a {weight_choice.lower()} watch")
+    return f"Recommended because it " + ", and ".join(parts) + "."
 def fetch_poster(movie_id):
     try:
         headers = {"User-Agent": "Mozilla/5.0"}
@@ -314,15 +396,30 @@ tab1, tab2 = st.tabs(["🔍 Recommend", "🎭 My Taste Profile"])
 # ════════════════════════════════════════════════════════
 with tab1:
     
-    c1, c2 = st.columns([6, 1])
-    with c1:
-        st.markdown('<p class="ctrl-label">🎬 Pick a movie you loved</p>', unsafe_allow_html=True)
-        selected_movie = st.selectbox("", content_df['title'].values, label_visibility="collapsed")
-    with c2:
-        st.markdown('<p class="ctrl-label">&nbsp;</p>', unsafe_allow_html=True)
-        search_btn = st.button("Find Movies →", use_container_width=True)
-    alpha = 0.6
-    user_id = 1
+c1, c2 = st.columns([6, 1])
+with c1:
+    st.markdown('<p class="ctrl-label">🎬 Pick a movie you loved</p>', unsafe_allow_html=True)
+    selected_movie = st.selectbox("", content_df['title'].values, label_visibility="collapsed")
+with c2:
+    st.markdown('<p class="ctrl-label">&nbsp;</p>', unsafe_allow_html=True)
+    search_btn = st.button("Find Movies →", use_container_width=True)
+nl_query = st.text_input("💬 Or just tell us what you're in the mood for", 
+                          placeholder="e.g. I have 3 hours and want something romantic and emotional")
+# NEW — mood/situation controls
+m1, m2, m3 = st.columns(3)
+with m1:
+    runtime_choice = st.selectbox("⏱ Time you have", ["No limit", "90 min", "2 hrs", "2.5 hrs"])
+with m2:
+    mood_choice = st.selectbox("🎭 Mood", ["Any", "Comfort watch", "Thrilling", "Thought-provoking", "Feel-good", "Dark/intense", "Romantic/emotional"])
+with m3:
+    weight_choice = st.radio("Light or heavy?", ["Any", "Light", "Heavy"], horizontal=True)
+if nl_query.strip():
+    parsed_runtime, parsed_mood, parsed_weight = parse_nl_query(nl_query)
+    runtime_choice = parsed_runtime
+    mood_choice = parsed_mood
+    weight_choice = parsed_weight
+alpha = 0.6
+user_id = 1
     
 
     st.markdown("""
@@ -350,30 +447,40 @@ with tab1:
     </div>
     """, unsafe_allow_html=True)
 
-    if search_btn:
-        with st.spinner("Analysing 4,800+ movies for you..."):
-            c_scores  = get_content_scores(selected_movie, n=15)
-            cf_scores = get_svd_scores(user_id, list(c_scores.keys()))
-            beta = 1 - alpha
-            hybrid = {mid: alpha*c_scores[mid] + beta*cf_scores.get(mid, 0) for mid in c_scores}
+if search_btn:
+    with st.spinner("Analysing 4,800+ movies for you..."):
+        c_scores  = get_content_scores(selected_movie, n=15)
+        cf_scores = get_svd_scores(user_id, list(c_scores.keys()))
+        beta = 1 - alpha
+        hybrid = {mid: alpha*c_scores[mid] + beta*cf_scores.get(mid, 0) for mid in c_scores}
 
-            results = []
-            for mid, h_score in hybrid.items():
-                row = content_df[content_df['id'] == mid]
-                if row.empty:
-                    continue
-                sentiment = get_sentiment(mid)
-                final = round(0.8*h_score + 0.2*sentiment, 4)
-                results.append({
-                    'title':       row.iloc[0]['title'],
-                    'movie_id':    mid,
-                    'sentiment':   sentiment,
-                    'final_score': final,
-                    'reason':      generate_reason(selected_movie, mid)
-                })
+        results = []
+        for mid, h_score in hybrid.items():
+            row = content_df[content_df['id'] == mid]
+            if row.empty:
+                continue
 
-            results.sort(key=lambda x: x['final_score'], reverse=True)
-            top5 = results[:5]
+            runtime_min = get_runtime(mid)
+            if runtime_min > RUNTIME_MAP[runtime_choice]:
+                continue  # hard filter
+
+            rec_genres = row.iloc[0]['genres']
+            sentiment = get_sentiment(mid)
+            final = round(0.8*h_score + 0.2*sentiment, 4)
+            final *= mood_fit_score(rec_genres, mood_choice)
+            final *= weight_fit_score(rec_genres, weight_choice)
+
+            results.append({
+                'title':       row.iloc[0]['title'],
+                'movie_id':    mid,
+                'runtime':     runtime_min,
+                'sentiment':   sentiment,
+                'final_score': round(final, 4),
+                'reason':      generate_reason(selected_movie, mid)
+            })
+
+        results.sort(key=lambda x: x['final_score'], reverse=True)
+        top5 = results[:5]
 
         st.markdown(f'<p class="section-title">Because you loved &nbsp;<em>{selected_movie}</em></p>',
                     unsafe_allow_html=True)
@@ -398,6 +505,7 @@ with tab1:
                     </div>
                     <div class="card-body">
                         <p class="movie-title">{rec['title']}</p>
+                        <p style="font-size:0.72rem;color:#888;margin:0 0 6px 0;">⏱ {rec['runtime']} min</p>
                         {badge_html}
                         <div class="sentiment-bar-bg">
                             <div class="sentiment-bar-fill"
@@ -407,6 +515,8 @@ with tab1:
                     </div>
                 </div>
                 """, unsafe_allow_html=True)
+                with st.expander("Why this?"):
+                    st.write(generate_full_sentence(selected_movie, rec['movie_id'], mood_choice, weight_choice))       
 
 # ════════════════════════════════════════════════════════
 # TAB 2 — TASTE DASHBOARD
