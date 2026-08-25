@@ -217,11 +217,6 @@ Select movies you've watched and CINEIQ builds your personal taste profile:
 
 ## 👤 Author
 
-**Your Name**
-[LinkedIn](https://linkedin.com/in/yourprofile) · [GitHub](https://github.com/yourusername)
+**Y. SHAINA SRUJITHA**
+[LinkedIn](https://www.linkedin.com/in/shaina-srujitha/) · [GitHub](https://github.com/shainamighty)
 
----
-
-## 📄 License
-
-MIT License — free to use, modify, and distribute.
